@@ -1,0 +1,29 @@
+# grills (local decision logs)
+/.grills/
+
+# macOS
+.DS_Store
+
+# node / build
+node_modules/
+dist/
+out/
+build/
+release/
+*.tsbuildinfo
+.vite/
+
+# logs / env / secrets
+*.log
+.env
+.env.*
+*.local
+
+# Electron app state + any copied usage/session artifacts (never commit)
+userData/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# fixtures must be PII-scrubbed; ignore raw captures
+**/__fixtures__/**/*.real.*
