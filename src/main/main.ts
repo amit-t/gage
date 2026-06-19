@@ -4,14 +4,16 @@ import { IPC } from './ipc';
 import { Store } from '../core/store';
 import { RefreshEngine } from '../core/refresh';
 import { enabledAdapters } from '../core/registry';
+import { CodexAdapter } from '../adapters/codex';
+import { DevinAdapter } from '../adapters/devin';
+import { ClaudeAdapter } from '../adapters/claude';
 import type { AgentAdapter, AgentId, UsageReport } from '../core/types';
 
 let tray: TrayController | null = null;
 let store: Store | null = null;
 let engine: RefreshEngine | null = null;
 
-// Adapters registered here in M2–M4:
-const ALL_ADAPTERS: AgentAdapter[] = [];
+const ALL_ADAPTERS: AgentAdapter[] = [new CodexAdapter(), new DevinAdapter(), new ClaudeAdapter()];
 
 const NAME: Record<AgentId, string> = { codex: 'Codex', claude: 'Claude', devin: 'Devin' };
 const STALE_MS = 15 * 60 * 1000;

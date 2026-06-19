@@ -1524,6 +1524,8 @@ git commit -m "feat(M2): codex adapter end-to-end — first real headroom number
 
 **Deliverable:** Devin shows ACU headroom vs the monthly budget (`monthly_budget` from `devin-token-monitor/config.json`); `noData` + hint when the budget is unset (the current machine state).
 
+> **AS-BUILT (2026-06-19) — supersedes Task 3.3 below.** better-sqlite3 is **lazy-loaded inside `read()`** (`const { default: Database } = await import('better-sqlite3')`), not imported at module top level, because electron-rebuild compiles it for Electron's ABI and Vitest runs under node's ABI — a top-level import would crash every test that imports `devin.ts`. The fragile logic is extracted into **pure functions** `sumAcuFromRows(rows)` and `buildDevinReport({totals,budget,resetAt,...})`, unit-tested directly with row arrays (no in-test SQLite, so `seed.ts` is dropped). The real SQLite read (join + `hidden` filter + epoch-scale detect) is the thin I/O boundary, **integration-verified** by running the query under Electron's node (`ELECTRON_RUN_AS_NODE=1 npx electron …`) against the live DB and confirming the ACU total matches `devin-usage all` exactly (390.2605 ACU / 19 668 requests). **Perf:** better-sqlite3 is synchronous and blocks the Electron main thread; an all-time scan of 252 k rows took ~4.9 s, so production must keep the cycle-start `WHERE m.created_at >= ?` filter and should move the read to a `utilityProcess`/worker as a follow-up.
+
 ### Task 3.1: Cycle math (TDD) — port `monthly_period`
 
 **Files:** Create `src/core/cycles.ts`, `test/cycles.test.ts`
