@@ -1,4 +1,4 @@
-import type { UsageReport, UsageStatus, Settings } from '../core/types';
+import type { UsageReport, UsageStatus, Settings, ClaudeCaptureStatus } from '../core/types';
 
 type DecoratedReport = UsageReport & { displayName?: string; stale?: boolean };
 
@@ -9,6 +9,8 @@ declare global {
       refresh: () => void;
       getSettings: () => Promise<Settings>;
       setSettings: (s: Partial<Settings>) => Promise<Settings>;
+      getClaudeCapture: () => Promise<ClaudeCaptureStatus>;
+      setClaudeCapture: (enable: boolean) => Promise<ClaudeCaptureStatus>;
       ping: () => Promise<string>;
     };
   }
@@ -88,10 +90,20 @@ const settingsEl = document.getElementById('settings')!;
 document.getElementById('refresh')!.addEventListener('click', () => window.gage.refresh());
 document.getElementById('toggle-settings')!.addEventListener('click', async () => {
   settingsEl.hidden = !settingsEl.hidden;
-  if (!settingsEl.hidden) renderSettings(await window.gage.getSettings());
+  if (!settingsEl.hidden) {
+    const [s, cap] = await Promise.all([window.gage.getSettings(), window.gage.getClaudeCapture()]);
+    renderSettings(s, cap);
+  }
 });
 
-function renderSettings(s: Settings): void {
+function captureMeta(cap: ClaudeCaptureStatus): string {
+  if (!cap.installed) return 'off — Claude shows noData until enabled';
+  const renders = cap.passthrough ? esc(cap.passthrough.replace('npx -y ', '').slice(0, 28)) : 'gage minimal line';
+  const seen = cap.capturedAt ? `last capture ${new Date(cap.capturedAt).toLocaleTimeString()}` : 'use Claude Code to populate';
+  return `on · renders via ${renders} · ${seen}`;
+}
+
+function renderSettings(s: Settings, cap: ClaudeCaptureStatus): void {
   const agents = ['codex', 'claude', 'devin'] as const;
   const modes = ['best', 'count', 'icon'] as const;
   settingsEl.innerHTML = `
@@ -99,11 +111,13 @@ function renderSettings(s: Settings): void {
     ${agents
       .map((id) => `<label><input type="checkbox" data-agent="${id}" ${s.enabled[id] ? 'checked' : ''}/> ${id}</label>`)
       .join('')}
+    <h4>Claude usage capture</h4>
+    <label><input type="checkbox" id="claude-capture" ${cap.installed ? 'checked' : ''}/> capture native 5h/weekly % (statusline hook)</label>
+    <p class="meta" id="capture-meta">${captureMeta(cap)}</p>
     <h4>Tray title</h4>
     <select id="tray-mode">
       ${modes.map((m) => `<option value="${m}" ${s.trayTitleMode === m ? 'selected' : ''}>${m}</option>`).join('')}
     </select>
-    <p class="meta">Claude: run <code>npm run setup:claude</code> to capture native 5h/weekly %</p>
     <p class="meta">Devin budget: set <code>monthly_budget.monthly_acu</code> in ~/.config/devin-token-monitor/config.json</p>`;
   settingsEl.querySelectorAll<HTMLInputElement>('input[data-agent]').forEach((cb) =>
     cb.addEventListener('change', () => {
@@ -111,6 +125,16 @@ function renderSettings(s: Settings): void {
       void window.gage.setSettings({ enabled }).then(() => window.gage.refresh());
     }),
   );
+  const captureCb = settingsEl.querySelector('#claude-capture') as HTMLInputElement;
+  captureCb.addEventListener('change', () => {
+    captureCb.disabled = true;
+    void window.gage.setClaudeCapture(captureCb.checked).then((next) => {
+      captureCb.disabled = false;
+      captureCb.checked = next.installed;
+      (settingsEl.querySelector('#capture-meta') as HTMLElement).textContent = captureMeta(next);
+      window.gage.refresh();
+    });
+  });
   (settingsEl.querySelector('#tray-mode') as HTMLSelectElement).addEventListener('change', (e) =>
     window.gage.setSettings({ trayTitleMode: (e.target as HTMLSelectElement).value as Settings['trayTitleMode'] }),
   );

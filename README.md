@@ -39,11 +39,11 @@ or right-click the app → **Open** → **Open**.
 ## Setup
 
 - **Codex** needs nothing — native percentage out of the box.
-- **Claude**: Claude's native 5h + weekly usage % exists *only* in the data Claude Code pipes to its statusline. gage captures it with a tiny wrapper you install once:
-  ```bash
-  npm run setup:claude     # reverse with: npm run teardown:claude
-  ```
-  This points Claude Code's `statusLine.command` at `~/.claude/gage/gage-statusline.cjs`, which writes `rate_limits` to `~/.claude/gage/ratelimits.json` and then **execs your previous statusline** (e.g. powerline) so your statusline looks identical. No dependency on any statusline tool — if none was configured, gage prints its own minimal line. Until installed, Claude shows **noData**.
+- **Claude**: Claude's native 5h + weekly usage % exists *only* in the data Claude Code pipes to its statusline. gage captures it with a tiny wrapper — enable it either way:
+  - **In the app:** Settings → **Claude usage capture** (toggle on). The wrapper ships inside the `.app`.
+  - **CLI:** `npm run setup:claude` (reverse: `npm run teardown:claude`).
+
+  Either points Claude Code's `statusLine.command` at `~/.claude/gage/gage-statusline.cjs`, which writes `rate_limits` to `~/.claude/gage/ratelimits.json` and then **execs your previous statusline** (e.g. powerline) so your statusline looks identical. No dependency on any statusline tool — if none was configured, gage prints its own minimal line. Until enabled, Claude shows **noData**.
 - **Devin**: set a monthly ACU budget in `~/.config/devin-token-monitor/config.json`:
   ```json
   { "monthly_budget": { "start_date": "2026-06-01", "monthly_acu": 200 } }

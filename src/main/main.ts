@@ -7,6 +7,7 @@ import { enabledAdapters } from '../core/registry';
 import { CodexAdapter } from '../adapters/codex';
 import { DevinAdapter } from '../adapters/devin';
 import { ClaudeAdapter } from '../adapters/claude';
+import { getClaudeCaptureStatus, setClaudeCapture } from './claudeCapture';
 import type { AgentAdapter, AgentId, UsageReport } from '../core/types';
 
 let tray: TrayController | null = null;
@@ -60,6 +61,12 @@ app.on('ready', () => {
     buildEngine(); // rebuild so toggled agents start/stop watching
     tray!.setTitle(store!.getReports(), next.trayTitleMode);
     return next;
+  });
+  ipcMain.handle(IPC.getClaudeCapture, () => getClaudeCaptureStatus());
+  ipcMain.handle(IPC.setClaudeCapture, (_e, enable: boolean) => {
+    const result = setClaudeCapture(!!enable);
+    void engine?.refreshAll();
+    return result;
   });
 });
 

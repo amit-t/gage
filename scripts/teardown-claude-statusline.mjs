@@ -1,36 +1,17 @@
 #!/usr/bin/env node
 /*
- * Reverse the gage statusline install: restore your previous statusLine.command
- * (the captured passthrough, e.g. powerline). Leaves the captured ratelimits.json
- * in place (harmless); the tray simply stops getting fresh Claude data.
+ * Reverse the gage statusline install (CLI entry): restore the captured
+ * passthrough (e.g. powerline). Logic lives in statusline/claude-capture.cjs.
  */
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const home = os.homedir();
-const settingsPath = path.join(home, '.claude', 'settings.json');
-const cfgPath = path.join(home, '.claude', 'gage', 'statusline.json');
+const require = createRequire(import.meta.url);
+const here = path.dirname(fileURLToPath(import.meta.url));
+const cap = require(path.join(here, '..', 'statusline', 'claude-capture.cjs'));
 
-if (!fs.existsSync(settingsPath)) {
-  console.error('No ~/.claude/settings.json found; nothing to restore.');
-  process.exit(1);
-}
-const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-
-let passthrough = null;
-try {
-  passthrough = JSON.parse(fs.readFileSync(cfgPath, 'utf8')).passthrough;
-} catch {
-  /* no captured passthrough */
-}
-
-if (passthrough) {
-  settings.statusLine = { type: 'command', command: passthrough };
-  console.log('• statusLine.command restored →', passthrough);
-} else {
-  delete settings.statusLine;
-  console.log('• no captured passthrough — removed statusLine (was minimal gage line)');
-}
-fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+const s = cap.uninstall(os.homedir());
+console.log('• statusLine restored →', s.statusLineCommand || '(removed — was a minimal gage line)');
 console.log('Done. gage capture-wrapper detached.');

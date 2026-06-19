@@ -34,6 +34,13 @@ export interface AgentAdapter {
   read(): Promise<UsageReport>; // fail-soft; never throws past the refresh engine
 }
 
+export interface ClaudeCaptureStatus {
+  installed: boolean;
+  statusLineCommand: string | null;
+  passthrough: string | null;
+  capturedAt: string | null;
+}
+
 export type TrayTitleMode = 'best' | 'count' | 'icon';
 
 export interface Settings {
