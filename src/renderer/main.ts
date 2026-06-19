@@ -103,8 +103,7 @@ function renderSettings(s: Settings): void {
     <select id="tray-mode">
       ${modes.map((m) => `<option value="${m}" ${s.trayTitleMode === m ? 'selected' : ''}>${m}</option>`).join('')}
     </select>
-    <p class="meta">Devin budget: <code>devin-usage budget --start YYYY-MM-DD --acu N</code></p>
-    <p class="meta">Claude budget: set <code>budget.session.amount</code> in ~/.claude/claude-powerline.json</p>`;
+    <p class="meta">Devin budget: set <code>monthly_budget.monthly_acu</code> in ~/.config/devin-token-monitor/config.json</p>`;
   settingsEl.querySelectorAll<HTMLInputElement>('input[data-agent]').forEach((cb) =>
     cb.addEventListener('change', () => {
       const enabled = { [cb.dataset.agent!]: cb.checked } as unknown as Settings['enabled'];

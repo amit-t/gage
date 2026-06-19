@@ -70,7 +70,7 @@ export function buildDevinReport(args: {
       source,
       fetchedAt,
       noData: true,
-      hint: 'set a Devin budget: devin-usage budget --start YYYY-MM-DD --acu N',
+      hint: 'set a Devin budget in ~/.config/devin-token-monitor/config.json (monthly_budget.monthly_acu)',
     });
   }
   raw.push({ label: 'budget ACU', value: budget.monthlyAcu.toFixed(4) });

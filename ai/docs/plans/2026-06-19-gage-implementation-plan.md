@@ -25,13 +25,13 @@ These supersede any conflicting field names in the spec/kickoff. Verified agains
 | **Devin DB** | `~/.local/share/devin/cli/sessions.db` (valid SQLite 3.x, ~1.3 GB, live-written). Opens read-only via the SQLite C lib / node bindings (`{readonly:true}`); the `sqlite3` **CLI** rejected it but python/node libs succeed. Tables incl. `sessions` (1184 rows) and `message_nodes` (252 536 rows). |
 | **Devin schema** | `sessions(id TEXT, working_directory, backend_type, model, created_at INT, last_activity_at INT, hidden INT, …)`. `message_nodes(row_id, session_id, node_id, created_at INT, chat_message TEXT, metadata TEXT)`. `chat_message` is JSON; usage lives at `message.metadata.committed_acu_cost` (number) and `message.metadata.metrics.{input_tokens,output_tokens,cache_read_tokens}`. |
 | **Devin time** | `message_nodes.created_at` is epoch, **ms or s** — normalize: `v > 1e12 ⇒ v/1000` (seconds). `created_at` is a real column ⇒ filter by cycle start in SQL for performance. |
-| **Devin budget** | `~/.config/devin-token-monitor/config.json` → **`monthly_budget.{start_date:"YYYY-MM-DD", monthly_acu:<number>}`** (spec wrongly guessed `start`/`acu`). **File ABSENT on this machine** ⇒ Devin `status:noData` until set. Same file devin-usage writes — shared source of truth. |
-| **Devin cycle math** | Reference `devin_usage.py::monthly_period`: anchor = `start_date`; step whole months (`add_months`, end-of-month clamped) to the cycle containing today; period `[start 00:00, nextStart 00:00)`; reset = `nextStart`. |
-| **Reference impl** | `~/Projects/Invenco/Tools-Utilities/devin-usage/devin_usage.py` is the authoritative Devin reader to port (SQL join `message_nodes m JOIN sessions s ON s.id=m.session_id` with `WHERE s.hidden=0` when the column exists). |
+| **Devin budget** | `~/.config/devin-token-monitor/config.json` → **`monthly_budget.{start_date:"YYYY-MM-DD", monthly_acu:<number>}`** (spec wrongly guessed `start`/`acu`). **File ABSENT on this machine** ⇒ Devin `status:noData` until set. The same config your Devin tooling uses — single source of truth. |
+| **Devin cycle math** | Reference the reference reader's monthly-cycle math: anchor = `start_date`; step whole months (`add_months`, end-of-month clamped) to the cycle containing today; period `[start 00:00, nextStart 00:00)`; reset = `nextStart`. |
+| **Reference impl** | `a local Devin usage reader` is the authoritative Devin reader to port (SQL join `message_nodes m JOIN sessions s ON s.id=m.session_id` with `WHERE s.hidden=0` when the column exists). |
 
 **Decisions locked here (flagged for Amit in the kickoff reply):**
 1. **Claude cap unit = tokens** for MVP (zero pricing-table dependency, fully local). `budget.session.amount` is a token count. Cost-based cap = documented stretch (needs a bundled per-model price map).
-2. **Devin budget: gage reads, devin-usage writes.** gage reads `monthly_budget` from the shared config; the settings pane links to `devin-usage budget --start … --acu …`. gage does not write that file in MVP.
+2. **Devin budget: gage reads the config; you (or your tooling) write it.** gage reads `monthly_budget` from the shared config; the settings pane links to `a local Devin reference reader budget --start … --acu …`. gage does not write that file in MVP.
 3. **Renderer = vanilla TS** (no React) — small popover, keep it lean.
 4. **better-sqlite3** opened `{ readonly:true, fileMustExist:true }`; lock/parse error ⇒ degraded `unknown` + last-known, retried on next fs event.
 
@@ -1524,7 +1524,7 @@ git commit -m "feat(M2): codex adapter end-to-end — first real headroom number
 
 **Deliverable:** Devin shows ACU headroom vs the monthly budget (`monthly_budget` from `devin-token-monitor/config.json`); `noData` + hint when the budget is unset (the current machine state).
 
-> **AS-BUILT (2026-06-19) — supersedes Task 3.3 below.** better-sqlite3 is **lazy-loaded inside `read()`** (`const { default: Database } = await import('better-sqlite3')`), not imported at module top level, because electron-rebuild compiles it for Electron's ABI and Vitest runs under node's ABI — a top-level import would crash every test that imports `devin.ts`. The fragile logic is extracted into **pure functions** `sumAcuFromRows(rows)` and `buildDevinReport({totals,budget,resetAt,...})`, unit-tested directly with row arrays (no in-test SQLite, so `seed.ts` is dropped). The real SQLite read (join + `hidden` filter + epoch-scale detect) is the thin I/O boundary, **integration-verified** by running the query under Electron's node (`ELECTRON_RUN_AS_NODE=1 npx electron …`) against the live DB and confirming the ACU total matches `devin-usage all` exactly (390.2605 ACU / 19 668 requests). **Perf:** better-sqlite3 is synchronous and blocks the Electron main thread; an all-time scan of 252 k rows took ~4.9 s, so production must keep the cycle-start `WHERE m.created_at >= ?` filter and should move the read to a `utilityProcess`/worker as a follow-up.
+> **AS-BUILT (2026-06-19) — supersedes Task 3.3 below.** better-sqlite3 is **lazy-loaded inside `read()`** (`const { default: Database } = await import('better-sqlite3')`), not imported at module top level, because electron-rebuild compiles it for Electron's ABI and Vitest runs under node's ABI — a top-level import would crash every test that imports `devin.ts`. The fragile logic is extracted into **pure functions** `sumAcuFromRows(rows)` and `buildDevinReport({totals,budget,resetAt,...})`, unit-tested directly with row arrays (no in-test SQLite, so `seed.ts` is dropped). The real SQLite read (join + `hidden` filter + epoch-scale detect) is the thin I/O boundary, **integration-verified** by running the query under Electron's node (`ELECTRON_RUN_AS_NODE=1 npx electron …`) against the live DB and confirming the ACU total matches the reference Devin reader exactly (390.2605 ACU / 19 668 requests). **Perf:** better-sqlite3 is synchronous and blocks the Electron main thread; an all-time scan of 252 k rows took ~4.9 s, so production must keep the cycle-start `WHERE m.created_at >= ?` filter and should move the read to a `utilityProcess`/worker as a follow-up.
 
 ### Task 3.1: Cycle math (TDD) — port `monthly_period`
 
@@ -1630,7 +1630,7 @@ Expected: PASS.
 
 ```bash
 git add src/core/cycles.ts test/cycles.test.ts
-git commit -m "feat(M3): monthly cycle math ported from devin-usage (TDD)"
+git commit -m "feat(M3): monthly cycle math ported from a local reference reader (TDD)"
 ```
 
 ### Task 3.2: Config readers (TDD)
@@ -1945,7 +1945,7 @@ export class DevinAdapter implements AgentAdapter {
       if (!budget) {
         return normalize({
           agent: this.id, windows: [], raw, source: this.dbPath, fetchedAt,
-          noData: true, hint: 'set a Devin budget: devin-usage budget --start YYYY-MM-DD --acu N',
+          noData: true, hint: 'set a Devin budget: edit ~/.config/devin-token-monitor/config.json',
         });
       }
       raw.push({ label: 'budget ACU', value: budget.monthlyAcu.toFixed(4) });
@@ -1971,7 +1971,7 @@ npx vitest run test/devin.test.ts
 ```
 Expected: PASS (cycle sum, hidden filter, noData paths).
 
-- [ ] **Step 6: Register Devin + manual verify against `devin-usage`**
+- [ ] **Step 6: Register Devin + manual cross-check against your reference Devin reader**
 
 In `src/main/main.ts`:
 ```ts
@@ -1980,9 +1980,9 @@ const ALL_ADAPTERS: AgentAdapter[] = [new CodexAdapter(), new DevinAdapter()];
 ```
 Manual cross-check (only if a budget is configured):
 ```bash
-python3 ~/Projects/Invenco/Tools-Utilities/devin-usage/devin_usage.py gauge --json | python3 -c "import sys,json;d=json.load(sys.stdin);print('used',d['used_acu'],'assigned',d['assigned_acu'])"
+python3 a local Devin usage reader gauge --json | python3 -c "import sys,json;d=json.load(sys.stdin);print('used',d['used_acu'],'assigned',d['assigned_acu'])"
 ```
-Expected: gage's `used ACU` matches `devin_usage gauge` `used_acu` for the same cycle (small drift OK if the DB changed between reads). On this machine the budget is **unset**, so gage shows Devin `noData` + the "set a Devin budget" hint — that is correct; to verify the % path, first run `devin-usage budget --start 2026-06-01 --acu 100` then re-open gage.
+Expected: gage's `used ACU` matches the reference reader `used_acu` for the same cycle (small drift OK if the DB changed between reads). On this machine the budget is **unset**, so gage shows Devin `noData` + the "set a Devin budget" hint — that is correct; to verify the % path, first run `add monthly_budget to ~/.config/devin-token-monitor/config.json` then re-open gage.
 
 - [ ] **Step 7: Commit**
 
@@ -2593,7 +2593,7 @@ function renderSettings(s: Settings): void {
     <select id="tray-mode">
       ${(['best', 'count', 'icon'] as const).map((m) => `<option value="${m}" ${s.trayTitleMode === m ? 'selected' : ''}>${m}</option>`).join('')}
     </select>
-    <p class="meta">Devin budget: <code>devin-usage budget --start YYYY-MM-DD --acu N</code></p>
+    <p class="meta">Devin budget: <code>edit ~/.config/devin-token-monitor/config.json</code></p>
     <p class="meta">Claude budget: set <code>budget.session.amount</code> in ~/.claude/claude-powerline.json</p>`;
   settingsEl.querySelectorAll<HTMLInputElement>('input[data-agent]').forEach((cb) =>
     cb.addEventListener('change', () =>
@@ -2741,9 +2741,9 @@ or right-click the app → **Open** → **Open**.
 ## Budgets
 
 - **Codex** needs no budget — it reports a native percentage out of the box.
-- **Devin**: set a monthly ACU budget (shared with `devin-usage`):
+- **Devin**: set a monthly ACU budget (shared with a local Devin reference reader):
   ```bash
-  devin-usage budget --start 2026-06-01 --acu 100
+  add monthly_budget to ~/.config/devin-token-monitor/config.json
   ```
   Writes `~/.config/devin-token-monitor/config.json` → `monthly_budget.{start_date, monthly_acu}`. Until set, Devin shows **noData**.
 - **Claude**: add an absolute per-block token cap to `~/.claude/claude-powerline.json`:
@@ -2886,7 +2886,7 @@ git commit --allow-empty -m "chore(M5): MVP DoD verified — three agents end-to
 ## Flagged decisions (confirm with Amit; none block M0–M2)
 
 1. **Claude cap unit = tokens** (not cost) for MVP — zero pricing-table dependency. Cost-based cap is a documented stretch. *(Spec §16 leaned cost; this trades fidelity-with-powerline for full-local simplicity.)*
-2. **gage reads, devin-usage writes** the Devin budget config — single source of truth. gage settings pane links the command rather than writing the file in MVP.
+2. **gage reads the config; you (or your tooling) write it** the Devin budget config — single source of truth. gage settings pane links the command rather than writing the file in MVP.
 3. **Renderer = vanilla TS** (no React).
 4. **better-sqlite3 `{readonly:true}`** with `electron-rebuild`; lock/parse error ⇒ `unknown` + last-known, retried next fs event. (Note: the `sqlite3` CLI failed to open the DB; node/python libs succeed — confirmed.)
 

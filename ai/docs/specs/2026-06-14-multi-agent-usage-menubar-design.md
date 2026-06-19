@@ -48,7 +48,7 @@ All three are local files, read-only. Verified present on this machine 2026-06-1
 | **Devin** | `~/.local/share/devin/cli/sessions.db` (SQLite) | `message_nodes.chat_message.metadata.committed_acu_cost` (+ `metrics.*_tokens`); attribution from `sessions` table | Σ `committed_acu_cost` over current monthly cycle vs **monthly ACU budget read from `~/.config/devin-token-monitor/config.json`** → `(acu − used)/acu` | **inferred**: cycle anchor (budget `start` date) + 1 month |
 
 **Reader rules:**
-- **Reimplemented natively** in gage — no shelling out to `devin-usage`/`ccusage`/powerline, no dependency on those tools being installed. gage owns its parsers.
+- **Reimplemented natively** in gage — no shelling out to external usage CLIs, no dependency on other tools being installed. gage owns its parsers.
 - Read-only; never write to or lock these files. SQLite opened read-only (immutable/`mode=ro`).
 - Codex: scan the newest session file(s) for the most recent `rate_limits` event; that snapshot is current state.
 - Claude: the 5h "block" = ccusage-style rolling window anchored on first activity; the active block is the one containing now (or the last block if activity < 5h ago).

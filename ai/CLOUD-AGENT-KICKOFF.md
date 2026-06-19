@@ -12,7 +12,7 @@ Build a macOS menu-bar (tray) Electron app, **`gage`**, that shows in one glance
 
 - **Local files only.** gage makes **zero network calls**. It parses usage artifacts already written on disk by the agents' own tools. No cookies, no webviews, no API keys, no ToS risk.
 - **Three agents — and only three** (the only ones with a local usage source, verified on-disk 2026-06-18): **Codex, Claude, Devin**. ChatGPT, Gemini, Antigravity have no local artifact → **dropped**, not stubbed.
-- **Native readers.** Reimplement the parsers inside gage. Do **not** shell out to `devin-usage`, `ccusage`, or powerline; do not depend on them being installed.
+- **Native readers.** Reimplement the parsers inside gage. Do **not** shell out to any external usage CLI; do not depend on other tools being installed.
 - **Platform:** macOS-first. **Stack:** Electron + TypeScript + Vite (renderer).
 - **Glance metric:** binding (lowest-window) headroom % + reset countdown as the sort key, **plus** raw native numbers per row / on expand.
 - **Refresh:** `fs.watch` the source dirs (debounced) + refresh-on-open + manual. No polling/backoff (nothing remote to rate-limit).

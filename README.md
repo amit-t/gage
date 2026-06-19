@@ -39,11 +39,11 @@ or right-click the app → **Open** → **Open**.
 ## Budgets
 
 - **Codex** needs no budget — it reports a native percentage out of the box.
-- **Devin**: set a monthly ACU budget (shared with `devin-usage`):
-  ```bash
-  devin-usage budget --start 2026-06-01 --acu 100
+- **Devin**: set a monthly ACU budget in `~/.config/devin-token-monitor/config.json`:
+  ```json
+  { "monthly_budget": { "start_date": "2026-06-01", "monthly_acu": 200 } }
   ```
-  Writes `~/.config/devin-token-monitor/config.json` → `monthly_budget.{start_date, monthly_acu}`. Until set, Devin shows **noData**.
+  `start_date` anchors the monthly cycle; `monthly_acu` is your ACU allowance. Until set, Devin shows **noData**.
 - **Claude**: add an absolute per-block token cap to `~/.claude/claude-powerline.json`:
   ```json
   { "budget": { "session": { "warningThreshold": 80, "amount": 2000000 } } }
