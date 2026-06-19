@@ -8,6 +8,7 @@ files:
   - package.json
 mac:
   category: public.app-category.developer-tools
+  icon: resources/icon.icns
   target:
     - dir # unsigned local build; no dmg/notarization
   extendInfo:

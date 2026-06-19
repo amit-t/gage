@@ -27,3 +27,6 @@ userData/
 
 # fixtures must be PII-scrubbed; ignore raw captures
 **/__fixtures__/**/*.real.*
+
+# raw design export archive (extracted into ai/export/)
+ai/*.zip

@@ -1,3 +1,5 @@
+<img src="resources/mark.png" alt="gage" width="96" align="left" />
+
 # gage
 
 Menu-bar gauge of how much usage headroom is left across your local AI agents — **Codex, Claude, Devin** — sorted so the top row is "give the next task to this one." Reads only local files already on your machine. **Zero network calls.**
