@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light dark;
+  font: 13px -apple-system, system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  padding: 6px;
+}
+#app {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  padding: 8px;
+  border-radius: 8px;
+}
+.row + .row {
+  margin-top: 4px;
+}
+.row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.name {
+  flex: 1;
+  font-weight: 600;
+}
+.pct {
+  font-variant-numeric: tabular-nums;
+}
+.bar {
+  height: 6px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 3px;
+  margin: 6px 0 2px;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #36b37e;
+}
+.status-tight .bar-fill {
+  background: #ffab00;
+}
+.status-blocked .bar-fill {
+  background: #ff5630;
+}
+.status-noData .bar-fill,
+.status-unknown .bar-fill {
+  background: #8993a4;
+}
+.sub {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.detail {
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+.detail .raw,
+.detail .meta {
+  opacity: 0.7;
+}
+.detail .err {
+  color: #ff5630;
+}
+.empty {
+  padding: 16px;
+  text-align: center;
+  opacity: 0.6;
+}
+#footer {
+  display: flex;
+  gap: 8px;
+  padding: 8px 4px 4px;
+}
+#footer button {
+  flex: 1;
+  padding: 4px;
+}
+#settings {
+  padding: 8px 4px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+#settings label {
+  display: block;
+  margin: 2px 0;
+}
+#settings .meta {
+  font-size: 11px;
+  opacity: 0.7;
+}

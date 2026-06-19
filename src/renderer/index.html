@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws:;"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>gage</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="rows"></div>
+      <div id="footer">
+        <button id="refresh">Refresh</button>
+        <button id="toggle-settings">Settings</button>
+      </div>
+      <div id="settings" hidden></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
