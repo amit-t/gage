@@ -103,6 +103,7 @@ function renderSettings(s: Settings): void {
     <select id="tray-mode">
       ${modes.map((m) => `<option value="${m}" ${s.trayTitleMode === m ? 'selected' : ''}>${m}</option>`).join('')}
     </select>
+    <p class="meta">Claude: run <code>npm run setup:claude</code> to capture native 5h/weekly %</p>
     <p class="meta">Devin budget: set <code>monthly_budget.monthly_acu</code> in ~/.config/devin-token-monitor/config.json</p>`;
   settingsEl.querySelectorAll<HTMLInputElement>('input[data-agent]').forEach((cb) =>
     cb.addEventListener('change', () => {

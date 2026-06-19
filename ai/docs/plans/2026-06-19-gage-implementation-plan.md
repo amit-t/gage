@@ -1997,6 +1997,8 @@ git commit -m "feat(M3): devin adapter — sessions.db ACU vs monthly budget (TD
 
 **Deliverable:** Claude shows active 5h-block tokens vs an absolute budget (`budget.session.amount` in `claude-powerline.json`); `noData` + hint when no absolute budget is set (current machine state). `warningThreshold` drives the tight cutoff.
 
+> **AS-BUILT (2026-06-19) — supersedes the budget approach below.** The block-vs-budget design was replaced after a request for a *native* Claude % (no budget). Claude's real 5h + weekly usage % (`five_hour`/`seven_day` → `used_percentage` + `resets_at`) is delivered **only** in the JSON Claude Code pipes to a statusline command's stdin — it is persisted nowhere on disk (verified). So gage ships its own **statusline capture-wrapper** (`statusline/gage-statusline.cjs`, installed via `npm run setup:claude`): it writes `rate_limits` → `~/.claude/gage/ratelimits.json` and then execs the user's previous statusline (e.g. powerline) so the visible statusline is unchanged — no hard dependency on any renderer. The Claude adapter now reads that capture file → `claude-5h` + `claude-weekly` windows, binding = min, real resets, **no budget**. The 5h-block math (`core/blocks.ts`) and the powerline-budget path are removed. Verified live: captured `five_hour 50% / seven_day 27%` → tray shows Claude `ok 50%` binding `claude-5h`.
+
 ### Task 4.1: 5h rolling-block math (TDD)
 
 **Files:** Create `src/core/blocks.ts`, `test/blocks.test.ts`

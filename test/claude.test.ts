@@ -1,65 +1,84 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseUsageEvents, ClaudeAdapter } from '../src/adapters/claude';
+import { epochToIso, captureToWindows, ClaudeAdapter } from '../src/adapters/claude';
 
-const fx = readFileSync(path.join(__dirname, 'fixtures/claude/transcript.jsonl'), 'utf8');
-
-describe('parseUsageEvents', () => {
-  it('extracts assistant usage as {ts, tokens} summing all 4 snake_case counters', () => {
-    const ev = parseUsageEvents(fx);
-    expect(ev).toHaveLength(3); // 3 assistant events, user line ignored
-    expect(ev[0]).toEqual({ ts: new Date('2026-06-19T03:05:00.000Z').getTime(), tokens: 1000 + 200 + 500 + 300 });
-    expect(ev[1]!.tokens).toBe(2000 + 400 + 0 + 1000);
-  });
-  it('ignores malformed lines and lines without usage', () => {
-    const ev = parseUsageEvents('not json\n{"type":"user","message":{}}\n');
-    expect(ev).toEqual([]);
+describe('epochToIso', () => {
+  it('handles epoch seconds and ms, undefined passthrough', () => {
+    expect(epochToIso(1781851618)).toBe(new Date(1781851618 * 1000).toISOString());
+    expect(epochToIso(1781851618000)).toBe(new Date(1781851618000).toISOString());
+    expect(epochToIso(undefined)).toBeUndefined();
   });
 });
 
-function recentTranscript(): string {
-  // two events in the last hour ⇒ a single active block
-  const a = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const b = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-  return [
-    JSON.stringify({ type: 'assistant', timestamp: a, message: { model: 'claude-opus-4-8', usage: { input_tokens: 100000, output_tokens: 20000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }),
-    JSON.stringify({ type: 'assistant', timestamp: b, message: { model: 'claude-opus-4-8', usage: { input_tokens: 50000, output_tokens: 10000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }),
-  ].join('\n');
-}
+describe('captureToWindows', () => {
+  it('maps used_percentage→headroom for both windows', () => {
+    const w = captureToWindows({
+      five_hour: { used_percentage: 23, resets_at: 1781851618 },
+      seven_day: { used_percentage: 24, resets_at: 1782348192 },
+    });
+    expect(w).toEqual([
+      { label: 'claude-5h', headroomPct: 77, resetAt: new Date(1781851618 * 1000).toISOString() },
+      { label: 'claude-weekly', headroomPct: 76, resetAt: new Date(1782348192 * 1000).toISOString() },
+    ]);
+  });
+  it('skips windows without a numeric used_percentage', () => {
+    expect(captureToWindows({ five_hour: null, seven_day: undefined })).toEqual([]);
+  });
+});
 
-describe('ClaudeAdapter.read', () => {
-  it('computes active-block headroom vs the configured token amount', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gage-claude-'));
-    const proj = path.join(dir, 'projects', 'p1');
-    mkdirSync(proj, { recursive: true });
-    const f = path.join(proj, 's.jsonl');
-    writeFileSync(f, recentTranscript());
-    utimesSync(f, new Date(), new Date());
-    const cfg = path.join(dir, 'claude-powerline.json');
-    writeFileSync(cfg, JSON.stringify({ budget: { session: { warningThreshold: 80, amount: 1_000_000 } } }));
-
-    const r = await new ClaudeAdapter(path.join(dir, 'projects'), cfg).read();
+describe('ClaudeAdapter', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), 'gage-claude-'));
+  });
+  afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
-
-    // used = 180_000 of 1_000_000 ⇒ 82% headroom ⇒ ok
-    expect(r.status).toBe('ok');
-    expect(r.headroomPct).toBe(82);
-    expect(r.bindingWindow).toBe('claude-block');
   });
 
-  it('reports noData + hint when no absolute amount is configured', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gage-claude-'));
-    const proj = path.join(dir, 'projects', 'p1');
-    mkdirSync(proj, { recursive: true });
-    writeFileSync(path.join(proj, 's.jsonl'), recentTranscript());
-    const cfg = path.join(dir, 'claude-powerline.json');
-    writeFileSync(cfg, JSON.stringify({ budget: { session: { warningThreshold: 80 } } })); // no amount
+  it('reads captured rate limits → binds the lower (weekly) window, native %', async () => {
+    const f = path.join(dir, 'ratelimits.json');
+    writeFileSync(
+      f,
+      JSON.stringify({
+        five_hour: { used_percentage: 23, resets_at: 1781851618 },
+        seven_day: { used_percentage: 24, resets_at: 1782348192 },
+        capturedAt: new Date().toISOString(),
+      }),
+    );
+    const r = await new ClaudeAdapter(f).read();
+    expect(r.status).toBe('ok');
+    expect(r.bindingWindow).toBe('claude-weekly'); // 76 < 77
+    expect(r.headroomPct).toBe(76);
+    expect(r.windows).toHaveLength(2);
+    expect(r.raw.some((m) => m.label === 'captured')).toBe(true);
+  });
 
-    const r = await new ClaudeAdapter(path.join(dir, 'projects'), cfg).read();
-    rmSync(dir, { recursive: true, force: true });
+  it('noData + hint when the capture file is absent', async () => {
+    const r = await new ClaudeAdapter(path.join(dir, 'nope.json')).read();
     expect(r.status).toBe('noData');
-    expect(r.hint).toMatch(/budget/i);
+    expect(r.hint).toMatch(/statusline|capture/i);
+  });
+
+  it('flags stale data when capturedAt is old', async () => {
+    const f = path.join(dir, 'ratelimits.json');
+    writeFileSync(
+      f,
+      JSON.stringify({
+        five_hour: { used_percentage: 10, resets_at: 1781851618 },
+        capturedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+    const r = await new ClaudeAdapter(f).read();
+    expect(r.status).toBe('ok');
+    expect(r.hint).toMatch(/stale/i);
+  });
+
+  it('unknown on malformed capture file', async () => {
+    const f = path.join(dir, 'ratelimits.json');
+    writeFileSync(f, 'not json');
+    const r = await new ClaudeAdapter(f).read();
+    expect(r.status).toBe('unknown');
   });
 });

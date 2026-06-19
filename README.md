@@ -9,17 +9,17 @@ Menu-bar gauge of how much usage headroom is left across your local AI agents �
 | Agent | Source | Metric |
 |-------|--------|--------|
 | Codex | `~/.codex/sessions/**/rollout-*.jsonl` (newest `rate_limits`) | native `100 − used_percent`, binding min(5h, weekly); real reset |
-| Claude | `~/.claude/projects/**/*.jsonl` transcripts | active 5h-block tokens vs `budget.session.amount`; inferred reset |
+| Claude | `~/.claude/gage/ratelimits.json` (captured by gage's statusline hook) | native `100 − used_percentage`, binding min(5h, weekly); real reset |
 | Devin | `~/.local/share/devin/cli/sessions.db` (SQLite, read-only) | Σ `committed_acu_cost` this monthly cycle vs `monthly_acu` |
 
-**Out of the box** Codex shows a real headroom % with no setup. Claude and Devin show `noData` + a one-line hint until you configure an absolute budget (below) — gage never fabricates a percentage.
+**Out of the box** Codex shows a real headroom % with no setup. Claude needs a one-time statusline hook (below) to capture its native %. Devin needs a monthly ACU budget. Until configured, those rows show `noData` + a one-line hint — gage never fabricates a percentage.
 
 ## Run / build locally
 
 ```bash
 npm install         # installs deps + rebuilds better-sqlite3 for Electron (postinstall)
 npm run dev         # live dev (tray app)
-npm test            # unit tests (51)
+npm test            # unit tests (47)
 npm run typecheck   # tsc, both projects
 npm run dist        # build the unsigned .app into release/
 ```
@@ -36,19 +36,19 @@ xattr -dr com.apple.quarantine "/Applications/gage.app"
 
 or right-click the app → **Open** → **Open**.
 
-## Budgets
+## Setup
 
-- **Codex** needs no budget — it reports a native percentage out of the box.
+- **Codex** needs nothing — native percentage out of the box.
+- **Claude**: Claude's native 5h + weekly usage % exists *only* in the data Claude Code pipes to its statusline. gage captures it with a tiny wrapper you install once:
+  ```bash
+  npm run setup:claude     # reverse with: npm run teardown:claude
+  ```
+  This points Claude Code's `statusLine.command` at `~/.claude/gage/gage-statusline.cjs`, which writes `rate_limits` to `~/.claude/gage/ratelimits.json` and then **execs your previous statusline** (e.g. powerline) so your statusline looks identical. No dependency on any statusline tool — if none was configured, gage prints its own minimal line. Until installed, Claude shows **noData**.
 - **Devin**: set a monthly ACU budget in `~/.config/devin-token-monitor/config.json`:
   ```json
   { "monthly_budget": { "start_date": "2026-06-01", "monthly_acu": 200 } }
   ```
   `start_date` anchors the monthly cycle; `monthly_acu` is your ACU allowance. Until set, Devin shows **noData**.
-- **Claude**: add an absolute per-block token cap to `~/.claude/claude-powerline.json`:
-  ```json
-  { "budget": { "session": { "warningThreshold": 80, "amount": 2000000 } } }
-  ```
-  `amount` is a token count; `warningThreshold` (%) drives the tight color. Until `amount` is set, Claude shows **noData**.
 
 ## Add a new local-source adapter
 
