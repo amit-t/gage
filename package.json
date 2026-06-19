@@ -6,6 +6,9 @@
   "license": "MIT",
   "private": true,
   "main": "./out/main/main.js",
+  "bin": {
+    "gage": "dist/cli/gage.cjs"
+  },
   "scripts": {
     "dev": "NODE_OPTIONS= electron-vite dev",
     "build": "electron-vite build",
@@ -16,6 +19,8 @@
     "dist": "electron-vite build && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
+    "build:cli": "node scripts/build-cli.mjs",
+    "prepare": "node scripts/build-cli.mjs",
     "setup:claude": "node scripts/setup-claude-statusline.mjs",
     "teardown:claude": "node scripts/teardown-claude-statusline.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"

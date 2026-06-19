@@ -79,6 +79,30 @@ export function buildDevinReport(args: {
   return normalize({ agent: 'devin', windows, raw, source, fetchedAt });
 }
 
+interface MinimalStatement {
+  all(...params: unknown[]): unknown[];
+  get(...params: unknown[]): unknown;
+}
+interface MinimalDb {
+  exec(sql: string): void;
+  prepare(sql: string): MinimalStatement;
+  close(): void;
+}
+
+/**
+ * Open the Devin DB read-only with whichever SQLite backend fits the runtime:
+ * - Electron (app): native better-sqlite3 (rebuilt for Electron's ABI).
+ * - plain node (the `gage` CLI): built-in `node:sqlite` (no native module, no ABI clash).
+ */
+async function openDevinDb(dbPath: string): Promise<MinimalDb> {
+  if (process.versions.electron) {
+    const { default: Database } = await import('better-sqlite3');
+    return new Database(dbPath, { readonly: true, fileMustExist: true }) as unknown as MinimalDb;
+  }
+  const { DatabaseSync } = await import('node:sqlite');
+  return new DatabaseSync(dbPath, { readOnly: true }) as unknown as MinimalDb;
+}
+
 export class DevinAdapter implements AgentAdapter {
   readonly id = 'devin' as const;
   readonly displayName = 'Devin';
@@ -110,12 +134,11 @@ export class DevinAdapter implements AgentAdapter {
     }
     const budget = readDevinBudget(this.configPath);
     try {
-      // Lazy-load the native module so test runners (node ABI) never load the
-      // Electron-ABI binary — only the running app (Electron) calls read().
-      const { default: Database } = await import('better-sqlite3');
-      const db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
+      // Backend chosen by runtime (Electron → better-sqlite3, node → node:sqlite);
+      // either way the native/Electron binary is only loaded when actually reading.
+      const db = await openDevinDb(this.dbPath);
       try {
-        db.pragma('busy_timeout = 200');
+        db.exec('PRAGMA busy_timeout = 200');
 
         // Detect epoch scale (seconds vs ms) from the column.
         const maxRow = db.prepare('SELECT MAX(created_at) AS mx FROM message_nodes').get() as { mx: number | null };

@@ -26,6 +26,31 @@ npm run dist        # build the unsigned .app into release/
 
 > The `dev`/`start` scripts clear `NODE_OPTIONS` so Electron launches even if your shell sets `--openssl-legacy-provider` (which Electron rejects).
 
+## Terminal CLI
+
+The same headroom view in your terminal — `gage`:
+
+```bash
+npm run build:cli && npm link   # installs the `gage` command globally
+gage                            # sorted one-glance table
+gage --json                     # machine-readable
+gage --verbose                  # raw numbers + source per agent
+gage --watch[=10]               # live refresh every N seconds (default 5)
+gage --no-color                 # plain text
+```
+
+```
+gage  agent headroom
+
+  ● Codex    ███████████████░░░  86%   5h      resetting…
+  ● Devin    █████████████░░░░░  72%   month   resets in 11d 9h
+  ● Claude   █████████████░░░░░  71%   weekly  resets in 2d 13h
+
+  → give the next task to Codex
+```
+
+The CLI reuses the same adapters as the app. Devin reads through Node's built-in `node:sqlite` (no native module / no Electron-ABI rebuild); the app uses `better-sqlite3` — the adapter picks the backend by runtime.
+
 ## Gatekeeper bypass (unsigned app)
 
 gage is unsigned (personal local run). First launch:
